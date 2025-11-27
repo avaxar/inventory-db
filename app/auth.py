@@ -63,6 +63,7 @@ def login():
         return {"message": "Invalid credentials!"}, 401
 
     session.clear()
+    # session.regenerate()
     session["user_id"] = user["id"]
     session["username"] = user["username"]
     session["role"] = user["role"]

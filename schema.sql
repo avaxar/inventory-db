@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS inventory_logs (
     type TEXT NOT NULL,
     product_id INTEGER NOT NULL,
     delta INTEGER NOT NULL,
+    note TEXT, -- Optional
 
     CONSTRAINT type_check CHECK (type IN ('s', 'f', 'r', 'd', 'a', 'o')),
     -- `s`ale, re`f`ill (restock), `r`eturned, `d`amaged, `a`djustment, `o`ther
@@ -121,8 +122,8 @@ CREATE TABLE IF NOT EXISTS sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time INTEGER NOT NULL DEFAULT (unixepoch()),
     total_cents INTEGER NOT NULL DEFAULT (0),
-    customer_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL, -- Linking to the writer
+    customer_id INTEGER, -- Optional due to deletion
+    user_id INTEGER, -- Linking to the writer; optional due to deletion
 
     CONSTRAINT customer_id_check FOREIGN KEY (customer_id) REFERENCES customers(id)
         ON UPDATE CASCADE ON DELETE SET NULL,

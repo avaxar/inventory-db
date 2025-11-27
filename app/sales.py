@@ -42,7 +42,7 @@ def get_sale(sale_id):
 
         details = db.execute(
             """
-            SELECT id, subtotal_cents, log_id, note
+            SELECT subtotal_cents, log_id, note
             FROM sales_details
             WHERE sale_id = ?;
             """,
@@ -92,28 +92,32 @@ def create_sale():
                 note = item.get("note")
 
                 if not subtotal:
-                    return {"message": "Each detail requires a subtotal."}, 400
+                    return {"message": "Each detail requires a subtotal!"}, 400
 
                 log_id = None
                 if product_id:
                     if not qty:
                         return {
-                            "message": "Each detail that contains inventory change must have a quantity."
+                            "message": "Each detail that contains inventory change must have a quantity!"
                         }, 400
 
                     log_cur = db.execute(
                         """
-                        INSERT INTO inventory_logs (type, product_id, delta)
-                        VALUES ('s', ?, ?);
+                        INSERT INTO inventory_logs (type, product_id, delta, note)
+                        VALUES ('s', ?, ?, ?);
                         """,
-                        (product_id, -qty),
+                        (
+                            product_id,
+                            -qty,
+                            f"Automatic logging from sale #{sale_id}: {note}",
+                        ),
                     )
                     log_id = log_cur.lastrowid
 
                 db.execute(
                     """
                     INSERT INTO sales_details (subtotal_cents, sale_id, log_id, note)
-                    VALUES (?, ?, ?);
+                    VALUES (?, ?, ?, ?);
                     """,
                     (subtotal, sale_id, log_id, note),
                 )

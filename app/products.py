@@ -66,7 +66,7 @@ def create_product():
                 """
                 INSERT INTO products (
                     sku, active, name, price_cents, description, category_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                ) VALUES (?, ?, ?, ?, ?, ?);
                 """,
                 (
                     data.get("sku"),
@@ -95,9 +95,6 @@ def update_product(product_id):
     data = request.get_json(force=True)
     if not data:
         return {"message": "A JSON body is required!"}, 400
-
-    fields = []
-    values = []
 
     fields = []
     values = []

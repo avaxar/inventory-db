@@ -19,6 +19,7 @@ def get_logs():
             "type": row["type"],
             "product_id": row["product_id"],
             "delta": row["delta"],
+            "note": row["note"],
         }
         for row in rows
     }
@@ -30,7 +31,7 @@ def get_log(log_id):
     with get_database() as db:
         row = db.execute(
             """
-            SELECT time, type, product_id, delta
+            SELECT time, type, product_id, delta, note
             FROM inventory_logs
             WHERE id = ?;
             """,
@@ -53,6 +54,7 @@ def create_log():
     type_ = data.get("type")
     product_id = data.get("product_id")
     delta = data.get("delta")
+    note = data.get("note")
 
     if not type_:
         return {"message": "A type is required!"}, 400
@@ -65,10 +67,10 @@ def create_log():
         with get_database() as db:
             cursor = db.execute(
                 """
-                INSERT INTO inventory_logs (type, product_id, delta)
-                VALUES (?, ?, ?);
+                INSERT INTO inventory_logs (type, product_id, delta, note)
+                VALUES (?, ?, ?, ?);
                 """,
-                (type_, product_id, delta),
+                (type_, product_id, delta, note),
             )
             log_id = cursor.lastrowid
     except sqlite3.IntegrityError as e:
@@ -93,7 +95,7 @@ def update_log(log_id):
     fields = []
     values = []
 
-    for key in {"type", "product_id", "delta"}:
+    for key in {"type", "product_id", "delta", "note"}:
         if key in data:
             fields.append(f"{key} = ?")
             values.append(data[key])
