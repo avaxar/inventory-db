@@ -1,2 +1,2 @@
 from .app import *
-from . import auth, categories, customers, products, users
+from . import auth, categories, customers, logs, products, users, sales

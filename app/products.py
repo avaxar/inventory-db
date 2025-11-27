@@ -54,11 +54,12 @@ def create_product():
         return {"message": "A JSON body is required!"}, 400
 
     name = data.get("name")
-    price_cents = data.get("price_cents")
-    active = data.get("active")
-
     if not name:
         return {"message": "A name is required!"}, 400
+
+    active = data.get("active")
+    if not active or not isinstance(active, bool):
+        return {"message": "A boolean active value is required!"}, 400
 
     with get_database() as db:
         try:
@@ -72,7 +73,7 @@ def create_product():
                     data.get("sku"),
                     int(active),
                     name,
-                    price_cents,
+                    data.get("price_cents"),
                     data.get("description"),
                     data.get("category_id"),
                 ),
@@ -80,9 +81,9 @@ def create_product():
 
             product_id = cursor.lastrowid
         except sqlite3.IntegrityError as e:
-            if "sku_check" in str(e):
+            if "sku" in str(e):
                 return {"message": "SKU already exists!"}, 409
-            if "category_id_check" in str(e):
+            if "category_id" in str(e):
                 return {"message": "Category does not exist!"}, 400
             return {"message": "Invalid input or constraint violation!"}, 400
 
@@ -125,9 +126,9 @@ def update_product(product_id):
                 tuple(values + [product_id]),
             )
         except sqlite3.IntegrityError as e:
-            if "sku_check" in str(e):
+            if "sku" in str(e):
                 return {"message": "SKU already exists!"}, 409
-            if "category_id_check" in str(e):
+            if "category_id" in str(e):
                 return {"message": "Category does not exist!"}, 400
             return {"message": "Invalid input or constraint violation!"}, 400
 

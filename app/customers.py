@@ -77,7 +77,7 @@ def create_customer():
                 ),
             )
         except sqlite3.IntegrityError as e:
-            if "email_check" in str(e):
+            if "email" in str(e):
                 return {"message": "Invalid e-mail format!"}, 400
             return {"message": "Invalid input or constraint violation!"}, 400
 
@@ -123,7 +123,7 @@ def update_customer(customer_id):
                 tuple(values + [customer_id]),
             )
         except sqlite3.IntegrityError as e:
-            if "email_check" in str(e):
+            if "email" in str(e):
                 return {"message": "Invalid e-mail format!"}, 400
             return {"message": "Invalid input or constraint violation!"}, 400
 

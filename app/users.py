@@ -49,11 +49,16 @@ def create_user():
         return {"message": "A JSON body is required!"}, 400
 
     username = data.get("username")
-    password = data.get("password")
-    role = data.get("role")
+    if not username:
+        return {"message": "A username is required!"}, 400
 
-    if not username or not password or role not in {"r", "w", "a", "d"}:
-        return {"message": "Invalid inputs!"}, 400
+    password = data.get("password")
+    if not password:
+        return {"message": "A password is required!"}, 400
+
+    role = data.get("role")
+    if role not in {"r", "w", "a", "d"}:
+        return {"message": "Invalid role!"}, 400
 
     with get_database() as db:
         try:
@@ -66,7 +71,7 @@ def create_user():
             )
             user_id = cursor.lastrowid
         except sqlite3.IntegrityError as e:
-            if "username_check" in str(e):
+            if "username" in str(e):
                 return {"message": "Username already exists!"}, 409
             return {"message": "Invalid input or constraint violation!"}, 400
 

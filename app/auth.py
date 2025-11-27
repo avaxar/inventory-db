@@ -41,10 +41,12 @@ def login():
         return {"message": "A JSON body is required!"}, 400
 
     username = data.get("username")
-    password = data.get("password")
+    if not username:
+        return {"message": "A username is required!"}, 400
 
-    if not username or not password:
-        return {"message": "Invalid inputs!"}, 400
+    password = data.get("password")
+    if not username:
+        return {"message": "A password is required!"}, 400
 
     with get_database() as db:
         user = db.execute(
@@ -52,14 +54,11 @@ def login():
             SELECT id, username, password_hash, role
             FROM users
             WHERE username = ?;
-        """,
+            """,
             (username,),
         ).fetchone()
 
-    if user is None:
-        return {"message": "Invalid credentials!"}, 401
-
-    if not bcrypt.check_password_hash(user["password_hash"], password):
+    if user is None or not bcrypt.check_password_hash(user["password_hash"], password):
         return {"message": "Invalid credentials!"}, 401
 
     session.clear()

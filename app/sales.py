@@ -42,8 +42,10 @@ def get_sale(sale_id):
 
         details = db.execute(
             """
-            SELECT subtotal_cents, log_id, note
-            FROM sales_details
+            SELECT sl.subtotal_cents, sl.log_id, sl.note, il.product_id, -il.delta AS quantity
+            FROM sales_details AS sd
+                LEFT JOIN inventory_logs AS il
+                ON (sd.log_id = il.id)
             WHERE sale_id = ?;
             """,
             (sale_id,),
@@ -67,10 +69,10 @@ def create_sale():
         return {"message": "A JSON body is required!"}, 400
 
     customer_id = data.get("customer_id")
-    details = data.get("details")
-
     if not customer_id:
-        return {"message": "A customer ID is required!"}, 400
+        return {"message": "A customer is required!"}, 400
+
+    details = data.get("details")
     if not details or not isinstance(details, list):
         return {"message": "A non-empty list of details is required!"}, 400
 
@@ -87,7 +89,7 @@ def create_sale():
 
             for item in details:
                 product_id = item.get("product_id")
-                qty = item.get("quantity")
+                quantity = item.get("quantity")
                 subtotal = item.get("subtotal_cents")
                 note = item.get("note")
 
@@ -96,7 +98,7 @@ def create_sale():
 
                 log_id = None
                 if product_id:
-                    if not qty:
+                    if not quantity:
                         return {
                             "message": "Each detail that contains inventory change must have a quantity!"
                         }, 400
@@ -108,7 +110,7 @@ def create_sale():
                         """,
                         (
                             product_id,
-                            -qty,
+                            -quantity,
                             f"Automatic logging from sale #{sale_id}: {note}",
                         ),
                     )
@@ -123,9 +125,9 @@ def create_sale():
                 )
         except sqlite3.IntegrityError as exc:
             msg = str(exc).lower()
-            if "customer_id_check" in msg:
+            if "customer_id" in msg:
                 return {"message": "Customer does not exist!"}, 400
-            if "product_id_check" in msg:
+            if "product_id" in msg:
                 return {"message": "Product does not exist!"}, 400
             return {"message": "Invalid input or constraint violation!"}, 400
 

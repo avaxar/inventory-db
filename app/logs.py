@@ -52,14 +52,14 @@ def create_log():
         return {"message": "A JSON body is required!"}, 400
 
     type_ = data.get("type")
-    product_id = data.get("product_id")
-    delta = data.get("delta")
-    note = data.get("note")
-
     if not type_:
         return {"message": "A type is required!"}, 400
+
+    product_id = data.get("product_id")
     if not product_id:
         return {"message": "A product is required!"}, 400
+
+    delta = data.get("delta")
     if delta is None:
         return {"message": "A delta value is required!"}, 400
 
@@ -70,16 +70,14 @@ def create_log():
                 INSERT INTO inventory_logs (type, product_id, delta, note)
                 VALUES (?, ?, ?, ?);
                 """,
-                (type_, product_id, delta, note),
+                (type_, product_id, delta, data.get("note")),
             )
             log_id = cursor.lastrowid
     except sqlite3.IntegrityError as e:
-        if "product_id_check" in str(e):
+        if "product_id" in str(e):
             return {"message": "Product does not exist!"}, 400
-        if "type_check" in str(e):
-            return {
-                "message": "Invalid type! Must be one of `s`ale, re`f`ill, `r`eturned, `d`amaged, `a`djustment, `o`ther."
-            }, 400
+        if "type" in str(e):
+            return {"message": "Invalid type!"}, 400
         return {"message": "Invalid input or constraint violation!"}, 400
 
     return {"message": "Log entry has been created.", "id": log_id}, 201
@@ -118,9 +116,7 @@ def update_log(log_id):
         if "product_id" in msg:
             return {"message": "Product does not exist!"}, 400
         if "type" in msg:
-            return {
-                "message": "Invalid type! Must be one of `s`ale, re`f`ill, `r`eturned, `d`amaged, `a`djustment, `o`ther."
-            }, 400
+            return {"message": "Invalid type!"}, 400
         return {"message": "Invalid input or constraint violation!"}, 400
 
     if result.rowcount == 0:
