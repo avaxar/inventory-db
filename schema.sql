@@ -7,9 +7,12 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('d', 'r', 'w', 'a'))
+    role TEXT NOT NULL,
+
+    CONSTRAINT username_check UNIQUE (username),
+    CONSTRAINT role_check CHECK (role IN ('d', 'r', 'w', 'a'))
     -- `d`eactivated (None), `r`ead (R), `w`rite (CR), `a`dmin (CRUD)
 );
 
@@ -22,13 +25,15 @@ CREATE INDEX IF NOT EXISTS index_username ON users(username);
 CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    email TEXT CHECK (email LIKE '%_@__%.__%'),
+    email TEXT,
     phone TEXT,
     address TEXT,
     city TEXT, -- Or town
     state TEXT, -- Or province
     post_code TEXT,
-    country TEXT
+    country TEXT,
+
+    CONSTRAINT email_check CHECK (email LIKE '%_@__%.__%')
 );
 
 ------------------------
@@ -37,21 +42,27 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    description TEXT -- Optional
+    name TEXT NOT NULL,
+    description TEXT, -- Optional
+
+    CONSTRAINT name_check UNIQUE (name)
 );
 
 CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sku TEXT UNIQUE, -- Optionally tied
-    active INTEGER NOT NULL CHECK (active IN (0, 1)),
+    sku TEXT, -- Optionally tied
+    active INTEGER NOT NULL,
     name TEXT NOT NULL,
-    price_cents INTEGER NOT NULL CHECK (price_cents > 0),
-    quantity INTEGER NOT NULL DEFAULT (0) CHECK (quantity >= 0),
+    price_cents INTEGER NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT (0),
     description TEXT, -- Optional
     category_id INTEGER, -- Optional
 
-    FOREIGN KEY (category_id) REFERENCES categories(id) 
+    CONSTRAINT sku_check UNIQUE (sku),
+    CONSTRAINT active_check CHECK (active IN (0, 1)),
+    CONSTRAINT price_check CHECK (price_cents > 0),
+    CONSTRAINT quantity_check CHECK (quantity >= 0),
+    CONSTRAINT category_id_check FOREIGN KEY (category_id) REFERENCES categories(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 );
 
@@ -64,12 +75,13 @@ CREATE INDEX IF NOT EXISTS index_sku ON products(sku);
 CREATE TABLE IF NOT EXISTS inventory_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time INTEGER NOT NULL DEFAULT (unixepoch()),
-    type TEXT NOT NULL CHECK (type IN ('s', 'f', 'r', 'd', 'a', 'o')),
-    -- `s`ale, re`f`ill (restock), `r`eturned, `d`amaged, `a`djustment, `o`ther
+    type TEXT NOT NULL,
     product_id INTEGER NOT NULL,
     delta INTEGER NOT NULL,
 
-    FOREIGN KEY (product_id) REFERENCES products(id)
+    CONSTRAINT type_check CHECK (type IN ('s', 'f', 'r', 'd', 'a', 'o')),
+    -- `s`ale, re`f`ill (restock), `r`eturned, `d`amaged, `a`djustment, `o`ther
+    CONSTRAINT product_id_check FOREIGN KEY (product_id) REFERENCES products(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 );
 
@@ -110,11 +122,11 @@ CREATE TABLE IF NOT EXISTS sales (
     time INTEGER NOT NULL DEFAULT (unixepoch()),
     total_cents INTEGER NOT NULL DEFAULT (0),
     customer_id INTEGER NOT NULL,
-    user_id INTEGER, -- Optional, linking to the writer
+    user_id INTEGER NOT NULL, -- Linking to the writer
 
-    FOREIGN KEY (customer_id) REFERENCES customers(id)
+    CONSTRAINT customer_id_check FOREIGN KEY (customer_id) REFERENCES customers(id)
         ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT user_id_check FOREIGN KEY (user_id) REFERENCES users(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 );
 
@@ -122,12 +134,13 @@ CREATE TABLE IF NOT EXISTS sales_details (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     subtotal_cents INTEGER NOT NULL,
     sale_id INTEGER NOT NULL,
-    log_id INTEGER UNIQUE, -- Optional, linking to the product being bought
+    log_id INTEGER, -- Optional, linking to the product being bought
     note TEXT, -- Optional
 
-    FOREIGN KEY (sale_id) REFERENCES sales(id)
+    CONSTRAINT sale_id_check FOREIGN KEY (sale_id) REFERENCES sales(id)
         ON UPDATE CASCADE ON DELETE CASCADE,
-    FOREIGN KEY (log_id) REFERENCES inventory_logs(id)
+    CONSTRAINT log_id_check_unique UNIQUE (log_id),
+    CONSTRAINT log_id_check FOREIGN KEY (log_id) REFERENCES inventory_logs(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 );
 
