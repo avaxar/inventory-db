@@ -3,6 +3,12 @@ from functools import wraps
 from .app import *
 
 
+@app.get("/login")
+def login_page():
+    session.clear()
+    return app.send_static_file("login.html")
+
+
 def privileged(access: str):
     assert access in {"r", "w", "a"}
 

@@ -9,10 +9,15 @@ import sqlite3
 
 
 load_dotenv()
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../static")
 app.secret_key = os.environ.get("INVENTORY_DB_KEY", "debug_test")
 bcrypt = Bcrypt(app)
 logging.basicConfig(level=logging.INFO)
+
+
+@app.get("/")
+def root_page():
+    return app.redirect("/login")
 
 
 def get_database():
@@ -34,10 +39,10 @@ def init_database():
         if (
             db.execute(
                 """
-            SELECT COUNT(*)
-            FROM users
-            WHERE users.role = 'a' OR users.username = "admin";
-            """
+                SELECT COUNT(*)
+                FROM users
+                WHERE users.role = 'a' OR users.username = "admin";
+                """
             ).fetchone()[0]
             == 0
         ):

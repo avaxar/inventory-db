@@ -1,5 +1,5 @@
 from .app import *
-from .auth import privileged
+from .login import privileged
 
 
 @app.get("/api/customers")
