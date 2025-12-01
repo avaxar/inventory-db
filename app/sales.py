@@ -13,15 +13,7 @@ def get_sales():
             """
         ).fetchall()
 
-    return {
-        str(row["id"]): {
-            "time": row["time"],
-            "total_cents": row["total_cents"],
-            "customer_id": row["customer_id"],
-            "user_id": row["user_id"],
-        }
-        for row in rows
-    }
+    return [dict(row) for row in rows]
 
 
 @app.get("/api/sales/<int:sale_id>")

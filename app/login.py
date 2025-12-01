@@ -3,10 +3,16 @@ from functools import wraps
 from .app import *
 
 
-@app.get("/login")
-def login_page():
-    session.clear()
-    return app.send_static_file("login.html")
+@app.get("/api/me")
+def get_current_user():
+    if "user_id" not in session:
+        return {"message": "You have not been authenticated."}, 401
+
+    return {
+        "id": session["user_id"],
+        "username": session["username"],
+        "role": session["role"],
+    }
 
 
 def privileged(access: str):
@@ -51,7 +57,7 @@ def login():
         return {"message": "A username is required!"}, 400
 
     password = data.get("password")
-    if not username:
+    if not password:
         return {"message": "A password is required!"}, 400
 
     with get_database() as db:
@@ -73,7 +79,10 @@ def login():
     session["username"] = user["username"]
     session["role"] = user["role"]
 
-    return {"message": "Logged in."}
+    return {
+        "message": "Logged in.",
+        "user": {"id": user["id"], "username": user["username"], "role": user["role"]},
+    }
 
 
 @app.post("/api/logout")

@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Inventory / POS — Frontend</title>
+
+<style>
+  /* --------- Basic layout + responsive --------- */
+  :root{ --accent:#2b6cb0; --muted:#666; --bg:#0f1720; --card:#0b1220; --glass: rgba(255,255,255,0.03); --danger:#d9534f; --success:#2ea44f; --max-width:1200px; font-family:Inter, system-ui, Arial, sans-serif; color: #e6eef6; }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071020,#071827 60%);-webkit-font-smoothing:antialiased;}
+  .app{max-width:var(--max-width);margin:18px auto;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.6);}
+  .layout{display:flex;min-height:70vh;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));}
+  .sidebar{width:220px;min-width:180px;background:var(--card);padding:18px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;}
+  .brand{font-weight:700;font-size:18px;margin-bottom:6px;color:var(--accent);}
+  .nav-btn{background:transparent;border:0;color:inherit;text-align:left;padding:8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:10px;}
+  .nav-btn.active{background:var(--glass);}
+  .main{flex:1;padding:18px;box-sizing:border-box;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .card{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th,td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left;}
+  th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;}
+  .controls{display:flex;gap:8px;align-items:center;}
+  button.btn{padding:6px 10px;border-radius:6px;border:0;background:var(--accent);color:#fff;cursor:pointer;}
+  button.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.04);}
+  button.btn.danger{background:var(--danger);}
+  input,select,textarea{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:6px;color:inherit;width:100%;box-sizing:border-box;}
+
+  /* login page */
+  .login-wrap{display:flex;justify-content:center;align-items:center;min-height:70vh;padding:28px;}
+  .login-card{width:360px;background:var(--card);padding:18px;border-radius:10px;}
+  .login-card h2{margin:0 0 12px 0;color:var(--accent);}
+
+  /* modal */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:60;}
+  .modal{width:720px;max-width:96%;background:var(--card);padding:16px;border-radius:8px;box-sizing:border-box;max-height:86vh;overflow:auto;}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .row{display:flex;gap:12px;}
+  .col{flex:1}
+
+  /* small */
+  .muted{color:var(--muted);font-size:13px;}
+  .error{color:var(--danger);font-size:13px;}
+  .success{color:var(--success);font-size:13px;}
+  @media (max-width:800px){ .layout{flex-direction:column;} .sidebar{width:100%;display:flex;flex-direction:row;overflow:auto;} .login-card{width:100%} .modal{width:95%} }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- LOGIN VIEW -->
+  <div id="view-login" class="login-wrap" aria-hidden="false">
+    <div class="login-card card">
+      <h2>Inventory / POS — Login</h2>
+      <div id="login-error" class="error" style="display:none"></div>
+      <label>Username
+        <input id="login-username" autocomplete="username" />
+      </label>
+      <label>Password
+        <input id="login-password" type="password" autocomplete="current-password" />
+      </label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <div class="muted">Session handled by server cookie</div>
+        <div style="display:flex;gap:8px">
+          <button id="btn-login" class="btn">Login</button>
+          <button id="btn-sample" class="btn secondary">Fill sample</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP (hidden until login) -->
+  <div id="view-app" style="display:none">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">Inventory DB</div>
+        <div id="user-info" class="muted">—</div>
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03)">
+        <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button class="nav-btn" data-view="products">Products</button>
+        <button class="nav-btn" data-view="categories">Categories</button>
+        <button class="nav-btn" data-view="customers">Customers</button>
+        <button class="nav-btn" data-view="sales">Sales</button>
+        <button class="nav-btn" data-view="users">Users</button>
+        <button class="nav-btn" data-view="logs">Logs</button>
+        <div style="flex:1"></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="muted" id="session-role">role: —</div>
+          <div style="display:flex;gap:8px">
+            <button id="btn-logout" class="btn secondary">Logout</button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div class="card" style="padding:10px;display:flex;gap:8px;align-items:center;">
+            <div id="current-view-title">Dashboard</div>
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.03)"></div>
+            <div class="muted" id="server-msg">Connected</div>
+          </div>
+          <div class="card" style="padding:10px;">
+            <span class="muted">Quick actions</span>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="quick-add" class="btn">Add</button>
+              <button id="quick-refresh" class="btn secondary">Refresh</button>
+            </div>
+          </div>
+        </div>
+
+        <section id="content-area" class="card">
+          <!-- dashboard default content -->
+          <div id="view-dashboard">
+            <h3>Overview</h3>
+            <div class="row" style="gap:12px;">
+              <div class="col card" id="overview-stats">
+                <div class="muted">Fetching overview...</div>
+              </div>
+              <div class="col card" id="overview-recent">
+                <div class="muted">Recent activity</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- resources will be injected here -->
+          <div id="resource-container" style="display:none"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- modal container -->
+<div id="modal-root" aria-hidden="true"></div>
+
+<script>
+/* =========================
+   Frontend single-file app
+   - No external libs
+   - Cookies used for session (Flask default)
+   - Fetch requests use credentials: 'include'
+   - Role-based UI toggles
+   ========================= */
+
+'use strict';
+
+/* -------------------------
+   CONFIG
+   ------------------------- */
+const CONFIG = {
+  apiBase: '/api',                 // base prefix for API endpoints. Adjust if your Flask uses /api/v1 etc.
+  loginUrl: '/api/login',
+  meUrl: '/api/me',                // GET returns current user info {id, username, role}
+  resources: {
+    users: '/users',
+    products: '/products',
+    categories: '/categories',
+    customers: '/customers',
+    sales: '/sales',
+    logs: '/logs'
+  },
+  fetchDefaults: { credentials: 'include', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } }
+};
+
+/* -------------------------
+   STATE
+   ------------------------- */
+let STATE = {
+  currentUser: null,   // set after login or /me
+  currentView: 'dashboard', // dashboard/products/categories/customers/sales/users/logs
+  lastFetched: {}      // cache per resource
+};
+
+/* -------------------------
+   HELPERS
+   ------------------------- */
+function qs(sel, root=document) { return root.querySelector(sel); }
+function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
+function show(el){ el.style.display = ''; }
+function hide(el){ el.style.display = 'none'; }
+function el(tag, opts = {}) {
+  const e = document.createElement(tag);
+  if (opts.class) e.className = opts.class;
+  if (opts.text) e.textContent = opts.text;
+  if (opts.html) e.innerHTML = opts.html;
+  if (opts.attrs) for (const k in opts.attrs) e.setAttribute(k, opts.attrs[k]);
+  return e;
+}
+function formatMoney(cents){ return (cents/100).toFixed(2); }
+
+/* -------------------------
+   AUTH
+   ------------------------- */
+async function apiFetch(path, init = {}) {
+  const url = path.startsWith('http') ? path : (CONFIG.apiBase + path);
+  const options = Object.assign({}, CONFIG.fetchDefaults, init);
+  try {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    const contentType = res.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') && text ? JSON.parse(text) : text;
+    if (!res.ok) {
+      // normalized error object
+      throw { status: res.status, body: data || text || res.statusText };
+    }
+    return data;
+  } catch (err) {
+    // rethrow so caller can present error
+    throw err;
+  }
+}
+
+async function login(username, password) {
+  return apiFetch('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+  // Flask backend expected route: POST /api/login
+  // It should set session cookie and return user object {id, username, role}
+}
+
+async function fetchMe() {
+  return apiFetch('/me', { method: 'GET' });
+}
+
+/* -------------------------
+   UI: modals and messages
+   ------------------------- */
+function showModal(title, contentNode, { wide=false }={}) {
+  const root = qs('#modal-root');
+  root.innerHTML = '';
+  root.setAttribute('aria-hidden','false');
+  const backdrop = el('div',{class:'modal-backdrop'});
+  const modal = el('div',{class:'modal'});
+  if (wide) modal.style.maxWidth = '1000px';
+  const header = el('div',{class:'modal-header'});
+  header.appendChild(el('div',{text:title}));
+  const closeBtn = el('button',{class:'btn secondary', text:'Close'});
+  closeBtn.onclick = () => { root.innerHTML = ''; root.setAttribute('aria-hidden','true'); };
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
+  modal.appendChild(contentNode);
+  backdrop.appendChild(modal);
+  root.appendChild(backdrop);
+}
+
+function showError(targetEl, message) {
+  targetEl.textContent = (typeof message === 'string') ? message : (message?.body?.message || JSON.stringify(message));
+  targetEl.style.display = 'block';
+}
+function hideError(targetEl){ targetEl.textContent=''; targetEl.style.display='none'; }
+
+/* -------------------------
+   AUTH UI
+   ------------------------- */
+function setSessionUser(user) {
+  STATE.currentUser = user;
+  if (user) {
+    qs('#user-info').textContent = user.username;
+    qs('#session-role').textContent = `role: ${user.role}`;
+    localStorage.setItem('frontend-current-user', JSON.stringify(user));
+  } else {
+    qs('#user-info').textContent = '—';
+    qs('#session-role').textContent = 'role: —';
+    localStorage.removeItem('frontend-current-user');
+  }
+}
+
+async function handleLoginClick() {
+  const userEl = qs('#login-username'), pwEl = qs('#login-password'), errEl = qs('#login-error');
+  hideError(errEl);
+  const username = userEl.value.trim(), password = pwEl.value;
+  if (!username || !password) { showError(errEl,'username and password required'); return; }
+  try {
+    const data = await apiFetch('/login', { method:'POST', body: JSON.stringify({ username, password }) });
+    // expected: { user: {id, username, role}, message: 'ok' } or simply user object
+    const user = data?.user || data;
+    setSessionUser(user);
+    showAppView();
+    await loadDashboard();
+  } catch (err) {
+    showError(errEl, err.body?.message || (err.status ? `Error ${err.status}` : 'Network error'));
+  }
+}
+
+async function handleLogout() {
+  try {
+    await apiFetch('/logout', { method: 'POST' }); // expecting backend route
+  } catch(e){ /* ignore */ }
+  setSessionUser(null);
+  showLoginView();
+}
+
+/* -------------------------
+   NAVIGATION
+   ------------------------- */
+function activateNav(view) {
+  STATE.currentView = view;
+  qsa('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  qs('#current-view-title').textContent = view.charAt(0).toUpperCase() + view.slice(1);
+  const container = qs('#resource-container');
+  if (view === 'dashboard') { hide(container); show(qs('#view-dashboard')); }
+  else { show(container); hide(qs('#view-dashboard')); renderResourceView(view); }
+}
+
+/* -------------------------
+   RESOURCE RENDERERS
+   ------------------------- */
+function createToolbarFor(resource) {
+  const toolbar = el('div',{class:'row', html:''});
+  const left = el('div',{class:'col'});
+  const right = el('div',{class:'col', attrs:{style:'text-align:right'}});
+  const btnAdd = el('button',{class:'btn', text:`Add ${resource.slice(0,-1)}`});
+  btnAdd.onclick = () => openCreateModal(resource);
+  right.appendChild(btnAdd);
+  const btnRefresh = el('button',{class:'btn secondary', text:'Refresh'});
+  btnRefresh.onclick = () => fetchAndRenderResource(resource);
+  right.appendChild(btnRefresh);
+  toolbar.appendChild(left);
+  toolbar.appendChild(right);
+  // role-based toggle: hide add if no write privilege
+  if (!hasWrite()) btnAdd.style.display = 'none';
+  return toolbar;
+}
+
+function hasRead(){ return STATE.currentUser && ['r','w','a'].includes(STATE.currentUser.role); }
+function hasWrite(){ return STATE.currentUser && ['w','a'].includes(STATE.currentUser.role); }
+function isAdmin(){ return STATE.currentUser && STATE.currentUser.role === 'a'; }
+
+async function renderResourceView(resource) {
+  const container = qs('#resource-container');
+  container.innerHTML = '';
+  const title = el('h3',{text: resource.charAt(0).toUpperCase() + resource.slice(1)});
+  container.appendChild(title);
+  container.appendChild(createToolbarFor(resource));
+  const holder = el('div',{class:'card'});
+  holder.appendChild(el('div',{class:'muted', text:'Loading...'}));
+  container.appendChild(holder);
+  await fetchAndRenderResource(resource, holder);
+}
+
+/* -------------------------
+   Fetch and table building
+   ------------------------- */
+async function fetchAndRenderResource(resource, holderEl = null) {
+  holderEl = holderEl || qs('#resource-container .card');
+  holderEl.innerHTML = '';
+  if (!hasRead()) {
+    holderEl.appendChild(el('div',{class:'error', text:'You do not have read access.'}));
+    return;
+  }
+  const endpoint = CONFIG.resources[resource];
+  if (!endpoint) { holderEl.appendChild(el('div',{class:'error', text:'No endpoint configured for '+resource})); return; }
+  try {
+    const data = await apiFetch(endpoint, { method:'GET' });
+    STATE.lastFetched[resource] = data;
+    // Build table
+    const table = el('table');
+    const thead = el('thead');
+    const headerRow = el('tr');
+    // using keys of first object to generate columns (safe fallback)
+    const sample = Array.isArray(data) ? (data[0] || {}) : {};
+    const keys = Object.keys(sample);
+    const cols = ['id', ...keys.filter(k=>k!=='id')];
+    cols.forEach(k => headerRow.appendChild(el('th',{text:k})));
+    headerRow.appendChild(el('th',{text:'Actions'}));
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = el('tbody');
+    (Array.isArray(data) ? data : []).forEach(item => {
+      const tr = el('tr');
+      cols.forEach(c => tr.appendChild(el('td',{text: (item[c]===null||item[c]===undefined)?'':String(item[c]) })));
+      const actionsTd = el('td');
+      const btnView = el('button',{class:'btn secondary', text:'View'});
+      btnView.onclick = () => openViewModal(resource, item);
+      actionsTd.appendChild(btnView);
+      if (hasWrite()) {
+        const btnEdit = el('button',{class:'btn', text:'Edit'});
+        btnEdit.onclick = () => openEditModal(resource, item);
+        actionsTd.appendChild(btnEdit);
+        const btnDel = el('button',{class:'btn danger', text:'Delete'});
+        btnDel.onclick = () => handleDelete(resource, item);
+        actionsTd.appendChild(btnDel);
+      }
+      tr.appendChild(actionsTd);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    holderEl.appendChild(table);
+    if ((Array.isArray(data) ? data.length : 0) === 0) holderEl.appendChild(el('div',{class:'muted', text:'No records found.'}));
+  } catch (err) {
+    holderEl.appendChild(el('div',{class:'error', text: err.body?.message || ('Error '+(err.status||'') )}));
+  }
+}
+
+/* -------------------------
+   CRUD modals
+   ------------------------- */
+function buildFormFor(resource, item = {}, readonly = false) {
+  // Special handling for sales
+  if (resource === 'sales') {
+    return buildSalesForm(item, readonly);
+  }
+  
+  // Basic heuristic fields: take union of known fields for each resource to provide UI-friendly names.
+  const schema = {
+    users: [{k:'username', label:'Username'}, {k:'password',label:'Password',type:'password'}, {k:'role',label:'Role', type:'select', options:['r','w','a','d']}],
+    products: [{k:'sku',label:'SKU'},{k:'active',label:'Active',type:'checkbox'},{k:'name',label:'Name'},{k:'price_cents',label:'Price (cents)'},{k:'quantity',label:'Quantity'},{k:'description',label:'Description',type:'textarea'},{k:'category_id',label:'Category ID'}],
+    categories: [{k:'name',label:'Name'},{k:'description',label:'Description',type:'textarea'}],
+    customers: [{k:'name',label:'Name'},{k:'email',label:'Email'},{k:'phone',label:'Phone'},{k:'address',label:'Address'},{k:'city',label:'City'},{k:'state',label:'State'},{k:'post_code',label:'Post Code'},{k:'country',label:'Country'}],
+    sales: [{k:'time',label:'Time'},{k:'total_cents',label:'Total (cents)'},{k:'customer_id',label:'Customer ID'},{k:'user_id',label:'User ID'}],
+    logs: [{k:'type',label:'Type'},{k:'product_id',label:'Product ID'},{k:'delta',label:'Delta'},{k:'note',label:'Note'}]
+  };
+  const fields = schema[resource] || Object.keys(item).map(k=>({k, label:k}));
+  const form = el('form');
+  form.style.display = 'grid';
+  form.style.gap = '10px';
+  fields.forEach(f => {
+    const wrapper = el('label');
+    const id = `f-${resource}-${f.k}`;
+    wrapper.appendChild(el('div',{text:f.label || f.k, attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+    if (f.type === 'textarea') {
+      const ta = el('textarea',{attrs:{id, rows:4}});
+      ta.value = item[f.k] || '';
+      if (f.type === 'checkbox') ta.checked = !!item[f.k];
+      if (readonly) ta.setAttribute('disabled','disabled');
+      wrapper.appendChild(ta);
+    } else if (f.type === 'select') {
+      const sel = el('select',{attrs:{id}});
+      (f.options||[]).forEach(opt => sel.appendChild(el('option',{text:opt, attrs:{value:opt}})));
+      sel.value = item[f.k] || '';
+      if (readonly) sel.setAttribute('disabled','disabled');
+      wrapper.appendChild(sel);
+    } else if (f.type === 'checkbox') {
+      const cb = el('input',{attrs:{type:'checkbox',id}});
+      cb.checked = !!item[f.k];
+      if (readonly) cb.setAttribute('disabled','disabled');
+      wrapper.appendChild(cb);
+    } else {
+      const inp = el('input',{attrs:{type:f.type || 'text', id}});
+      inp.value = item[f.k] || '';
+      if (readonly) inp.setAttribute('disabled','disabled');
+      wrapper.appendChild(inp);
+    }
+    form.appendChild(wrapper);
+  });
+  return form;
+}
+
+function buildSalesForm(item = {}, readonly = false) {
+  const form = el('form');
+  form.style.display = 'grid';
+  form.style.gap = '15px';
+
+  // Customer ID field
+  const customerWrapper = el('label');
+  customerWrapper.appendChild(el('div',{text:'Customer ID', attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+  const customerInput = el('input',{attrs:{type:'number', id:'f-sales-customer_id', placeholder:'Required'}});
+  customerInput.value = item.customer_id || '';
+  if (readonly) customerInput.setAttribute('disabled','disabled');
+  customerWrapper.appendChild(customerInput);
+  form.appendChild(customerWrapper);
+
+  // Sale details section
+  const detailsWrapper = el('div');
+  detailsWrapper.appendChild(el('div',{text:'Sale Items', attrs:{style:'font-weight:bold;margin-bottom:10px;'}}));
+  
+  const detailsContainer = el('div', {attrs:{id:'sales-details'}});
+  form.appendChild(detailsWrapper);
+  form.appendChild(detailsContainer);
+
+  // Add item button
+  const addBtn = el('button', {text:'+ Add Item', class:'btn', attrs:{type:'button'}});
+  addBtn.onclick = () => addSaleDetail(detailsContainer);
+  form.appendChild(addBtn);
+
+  // Add initial item if not readonly
+  if (!readonly) {
+    addSaleDetail(detailsContainer);
+  }
+
+  return form;
+}
+
+function addSaleDetail(container) {
+  const detail = el('div', {attrs:{style:'border:1px solid #ddd;padding:10px;margin-bottom:10px;border-radius:4px;'}});
+  
+  const removeBtn = el('button', {text:'Remove', class:'btn', attrs:{type:'button', style:'float:right;background:#ff4444;color:white;'}});
+  removeBtn.onclick = () => container.removeChild(detail);
+  
+  const productWrapper = el('label');
+  productWrapper.appendChild(el('div',{text:'Product ID', attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+  const productInput = el('input',{attrs:{type:'number', placeholder:'Product ID', style:'margin-right:10px;width:100px;'}});
+  productWrapper.appendChild(productInput);
+
+  const quantityWrapper = el('label');
+  quantityWrapper.appendChild(el('div',{text:'Quantity', attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+  const quantityInput = el('input',{attrs:{type:'number', placeholder:'Quantity', style:'margin-right:10px;width:100px;'}});
+  quantityWrapper.appendChild(quantityInput);
+
+  const subtotalWrapper = el('label');
+  subtotalWrapper.appendChild(el('div',{text:'Subtotal (cents)', attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+  const subtotalInput = el('input',{attrs:{type:'number', placeholder:'Subtotal in cents', style:'margin-right:10px;width:120px;'}});
+  subtotalWrapper.appendChild(subtotalInput);
+
+  const noteWrapper = el('label');
+  noteWrapper.appendChild(el('div',{text:'Note', attrs:{style:'font-size:13px;margin-bottom:6px;color:var(--muted)'}}));
+  const noteInput = el('input',{attrs:{placeholder:'Optional note', style:'width:200px;'}});
+  noteWrapper.appendChild(noteInput);
+
+  detail.appendChild(removeBtn);
+  detail.appendChild(productWrapper);
+  detail.appendChild(quantityWrapper);
+  detail.appendChild(subtotalWrapper);
+  detail.appendChild(noteWrapper);
+  
+  container.appendChild(detail);
+}
+
+function openViewModal(resource, item) {
+  const content = el('div');
+  content.style.fontFamily = 'monospace';
+  content.style.lineHeight = '1.6';
+  content.style.fontSize = '14px';
+  
+  // Define field display names and order for each resource type
+  const fieldMappings = {
+    products: [
+      { key: 'id', label: 'ID' },
+      { key: 'sku', label: 'SKU' },
+      { key: 'name', label: 'Name' },
+      { key: 'active', label: 'Active', format: (val) => val ? 'Yes' : 'No' },
+      { key: 'price_cents', label: 'Price (cents)' },
+      { key: 'quantity', label: 'Quantity' },
+      { key: 'description', label: 'Description' },
+      { key: 'category_id', label: 'Category ID' }
+    ],
+    categories: [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Name' },
+      { key: 'description', label: 'Description' }
+    ],
+    customers: [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'address', label: 'Address' },
+      { key: 'city', label: 'City' },
+      { key: 'state', label: 'State' },
+      { key: 'post_code', label: 'Post Code' },
+      { key: 'country', label: 'Country' }
+    ],
+    sales: [
+      { key: 'id', label: 'ID' },
+      { key: 'time', label: 'Time', format: (val) => new Date(val * 1000).toLocaleString() },
+      { key: 'total_cents', label: 'Total (cents)' },
+      { key: 'customer_id', label: 'Customer ID' },
+      { key: 'user_id', label: 'User ID' }
+    ],
+    users: [
+      { key: 'id', label: 'ID' },
+      { key: 'username', label: 'Username' },
+      { key: 'role', label: 'Role' }
+    ],
+    logs: [
+      { key: 'id', label: 'ID' },
+      { key: 'time', label: 'Time', format: (val) => new Date(val * 1000).toLocaleString() },
+      { key: 'type', label: 'Type' },
+      { key: 'product_id', label: 'Product ID' },
+      { key: 'delta', label: 'Delta' },
+      { key: 'note', label: 'Note' }
+    ]
+  };
+  
+  const fields = fieldMappings[resource] || Object.keys(item).map(k => ({ key: k, label: k }));
+  
+  fields.forEach(field => {
+    if (item.hasOwnProperty(field.key) && item[field.key] !== null && item[field.key] !== undefined && item[field.key] !== '') {
+      const line = el('div');
+      line.style.marginBottom = '8px';
+      
+      const value = field.format ? field.format(item[field.key]) : item[field.key];
+      line.textContent = `${field.label}: ${value}`;
+      
+      content.appendChild(line);
+    }
+  });
+  
+  showModal(`${resource.slice(0,-1)} details`, content);
+}
+
+function openCreateModal(resource) {
+  const form = buildFormFor(resource, {});
+  const submit = el('button',{class:'btn', text:'Create'});
+  const error = el('div',{class:'error', attrs:{style:'display:none;'}});
+  submit.onclick = async (ev) => {
+    ev.preventDefault();
+    hideError(error);
+    const body = collectFormValues(resource, form);
+    // Basic validation examples:
+    if (resource === 'users' && !body.username) { showError(error,'username required'); return; }
+    try {
+      await apiFetch(CONFIG.resources[resource], { method:'POST', body: JSON.stringify(body) });
+      closeModal();
+      await fetchAndRenderResource(resource);
+    } catch (err) {
+      showError(error, err.body?.message || 'Create failed');
+    }
+  };
+  const content = el('div');
+  content.appendChild(form);
+  content.appendChild(error);
+  content.appendChild(el('div',{attrs:{style:'margin-top:12px;display:flex;gap:8px;'}, html:''}));
+  content.querySelector('div:last-child').appendChild(submit);
+  showModal(`Create ${resource.slice(0,-1)}`, content, { wide:true });
+}
+
+function openEditModal(resource, item) {
+  const form = buildFormFor(resource, item);
+  const error = el('div',{class:'error', attrs:{style:'display:none;'}});
+  const submit = el('button',{class:'btn', text:'Save'});
+  const content = el('div');
+  submit.onclick = async (ev) => {
+    ev.preventDefault();
+    hideError(error);
+    const body = collectFormValues(resource, form);
+    // Remove id if accidentally included
+    delete body.id;
+    try {
+      await apiFetch(`${CONFIG.resources[resource]}/${item.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      closeModal();
+      await fetchAndRenderResource(resource);
+    } catch (err) {
+      showError(error, err.body?.message || 'Update failed');
+    }
+  };
+  content.appendChild(form);
+  content.appendChild(error);
+  content.appendChild(el('div',{attrs:{style:'margin-top:12px;display:flex;gap:8px;'}, html:''}));
+  content.querySelector('div:last-child').appendChild(submit);
+  showModal(`Edit ${resource.slice(0,-1)}`, content, { wide:true });
+}
+
+function collectFormValues(resource, formEl) {
+  // Special handling for sales
+  if (resource === 'sales') {
+    const data = {};
+    
+    // Get customer ID
+    const customerInput = formEl.querySelector('#f-sales-customer_id');
+    if (customerInput && customerInput.value) {
+      data.customer_id = Number(customerInput.value);
+    }
+    
+    // Get sale details
+    const detailsContainer = formEl.querySelector('#sales-details');
+    const detailDivs = detailsContainer ? Array.from(detailsContainer.children) : [];
+    const details = [];
+    
+    detailDivs.forEach(div => {
+      const productInput = div.querySelector('input[placeholder="Product ID"]');
+      const quantityInput = div.querySelector('input[placeholder="Quantity"]');
+      const subtotalInput = div.querySelector('input[placeholder="Subtotal in cents"]');
+      const noteInput = div.querySelector('input[placeholder="Optional note"]');
+      
+      if (productInput && quantityInput && subtotalInput) {
+        const detail = {};
+        if (productInput.value) detail.product_id = Number(productInput.value);
+        if (quantityInput.value) detail.quantity = Number(quantityInput.value);
+        if (subtotalInput.value) detail.subtotal_cents = Number(subtotalInput.value);
+        if (noteInput && noteInput.value) detail.note = noteInput.value;
+        
+        // Only add if we have the required fields
+        if (detail.subtotal_cents) {
+          details.push(detail);
+        }
+      }
+    });
+    
+    data.details = details;
+    return data;
+  }
+  
+  // Default handling for other resources
+  const data = {};
+  const inputs = Array.from(formEl.querySelectorAll('input,textarea,select'));
+  inputs.forEach(i => {
+    const id = i.id || '';
+    const parts = id.split('-');
+    const key = parts.slice(2).join('-'); // id pattern f-resource-key
+    if (!key) return;
+    if (i.type === 'checkbox') data[key] = i.checked;
+    else if (i.type === 'number') data[key] = i.value === '' ? null : Number(i.value);
+    else data[key] = i.value;
+  });
+  return data;
+}
+
+function closeModal() {
+  const root = qs('#modal-root');
+  root.innerHTML = ''; root.setAttribute('aria-hidden','true');
+}
+
+/* -------------------------
+   DELETE handling
+   ------------------------- */
+async function handleDelete(resource, item) {
+  // confirmation
+  const content = el('div');
+  const txt = el('div',{html:`<div class="muted">Confirm deletion of <strong>${resource.slice(0,-1)} #${item.id}</strong></div>`});
+  content.appendChild(txt);
+  const err = el('div',{class:'error', attrs:{style:'display:none'}});
+  const confirm = el('button',{class:'btn danger', text:'Delete'});
+  confirm.onclick = async () => {
+    hideError(err);
+    try {
+      await apiFetch(`${CONFIG.resources[resource]}/${item.id}`, { method: 'DELETE' });
+      closeModal();
+      await fetchAndRenderResource(resource);
+    } catch (e) {
+      showError(err, e.body?.message || 'Delete failed');
+    }
+  };
+  content.appendChild(err);
+  content.appendChild(el('div',{attrs:{style:'margin-top:10px;display:flex;gap:8px;'}, html:''}));
+  content.querySelector('div:last-child').appendChild(confirm);
+  showModal('Confirm delete', content);
+}
+
+/* -------------------------
+   DASHBOARD
+   ------------------------- */
+async function loadDashboard() {
+  const s1 = qs('#overview-stats');
+  s1.innerHTML = '<div class="muted">Loading overview...</div>';
+  try {
+    // Example: call endpoints to get counts - adjust if your backend provides /overview
+    const p = await apiFetch(CONFIG.resources.products, { method:'GET' });
+    const u = await apiFetch(CONFIG.resources.users, { method:'GET' });
+    const c = await apiFetch(CONFIG.resources.categories, { method:'GET' });
+    s1.innerHTML = `<div><strong>Products:</strong> ${Array.isArray(p)?p.length:0}</div>
+                    <div><strong>Users:</strong> ${Array.isArray(u)?u.length:0}</div>
+                    <div><strong>Categories:</strong> ${Array.isArray(c)?c.length:0}</div>`;
+    const recentEl = qs('#overview-recent');
+    try {
+      const sales = await apiFetch(CONFIG.resources.sales, { method:'GET' });
+      recentEl.innerHTML = `<div class="muted">Recent sales (${(Array.isArray(sales)?Math.min(5,sales.length):0)})</div>
+                            <ul>${(Array.isArray(sales)?sales.slice(0,5).map(s=>`<li>#${s.id} ${s.total_cents?formatMoney(s.total_cents):''}</li>`).join(''):'')}</ul>`;
+    } catch(e){ recentEl.innerHTML = '<div class="muted">Failed to load recent</div>'; }
+  } catch(e) {
+    s1.innerHTML = `<div class="error">Unable to load overview</div>`;
+  }
+}
+
+/* -------------------------
+   BOOT / session check
+   ------------------------- */
+async function initApp() {
+  // wire UI handlers
+  qs('#btn-login').onclick = handleLoginClick;
+  qs('#btn-sample').onclick = () => { qs('#login-username').value='admin'; qs('#login-password').value='password'; };
+  qs('#btn-logout').onclick = handleLogout;
+  qsa('.nav-btn').forEach(b => b.onclick = () => activateNav(b.dataset.view));
+  qs('#quick-refresh').onclick = () => { if (STATE.currentView !== 'dashboard') fetchAndRenderResource(STATE.currentView); else loadDashboard(); };
+  qs('#quick-add').onclick = () => { if (STATE.currentView !== 'dashboard') openCreateModal(STATE.currentView); };
+
+  // attempt to rehydrate current user via /me or local storage
+  const localUser = localStorage.getItem('frontend-current-user');
+  if (localUser) {
+    try {
+      const u = JSON.parse(localUser);
+      setSessionUser(u);
+    } catch(e){ localStorage.removeItem('frontend-current-user'); }
+  }
+
+  try {
+    const me = await apiFetch('/me', { method: 'GET' }); // route: GET /api/me
+    setSessionUser(me);
+    showAppView();
+    await loadDashboard();
+  } catch(e) {
+    // not logged in
+    showLoginView();
+  }
+}
+
+function showLoginView() {
+  hide(qs('#view-app')); show(qs('#view-login'));
+  hide(qs('#view-dashboard')); // clear sensitive
+  qs('#view-login').setAttribute('aria-hidden','false');
+}
+
+function showAppView() {
+  hide(qs('#view-login')); show(qs('#view-app'));
+  qs('#view-app').setAttribute('aria-hidden','false');
+  activateNav(STATE.currentView || 'dashboard');
+}
+
+/* -------------------------
+   SAMPLE endpoint usage reference (for backend devs)
+   ------------------------- */
+/*
+  Examples (use fetch with credentials included):
+  - Login:
+      POST /api/login
+      body: { username, password }
+      response: user object
+
+  - Get current user:
+      GET /api/me
+      response: user object
+
+  - Products list:
+      GET /api/products
+      response: [ {id, sku, name, price_cents, quantity, ...}, ... ]
+
+  - Create product:
+      POST /api/products
+      body: { sku, name, price_cents, quantity, description, category_id, active }
+      response: created object
+
+  - Update product:
+      PATCH /api/products/:id
+      body: { name: 'New name', price_cents: 1000 }
+      response: updated object
+
+  - Delete product:
+      DELETE /api/products/:id
+      response: { message: 'deleted' } or 204
+
+  Notes:
+  - Every fetch uses credentials: 'include' to ensure session cookie is sent.
+  - If your Flask routes live under /api prefix, CONFIG.apiBase should be '/api' (default).
+  - Adjust endpoints in CONFIG.resources to exactly match your backend routes.
+*/
+
+/* -------------------------
+   START
+   ------------------------- */
+initApp(); // no await to tolerate older browsers
+
+</script>

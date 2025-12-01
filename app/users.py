@@ -13,13 +13,7 @@ def get_users():
             """
         ).fetchall()
 
-    return {
-        str(row["id"]): {
-            "username": row["username"],
-            "role": row["role"],
-        }
-        for row in rows
-    }
+    return [dict(row) for row in rows]
 
 
 @app.get("/api/users/<int:user_id>")

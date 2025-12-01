@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { padding: 10px; margin: 5px; }
+        input { padding: 5px; margin: 5px; display: block; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <h1>Debug Login Test</h1>
+    
+    <input type="text" id="username" placeholder="Username" value="admin">
+    <input type="password" id="password" placeholder="Password" value="admin">
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testMe()">Test /api/me</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="log"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            log('Starting login test...');
+            log(`Username: ${username}, Password: ${password}`);
+            
+            try {
+                log('Creating fetch request...');
+                const url = '/api/login';
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                };
+                
+                log(`Fetching: ${url}`);
+                log(`Options: ${JSON.stringify(options, null, 2)}`);
+                
+                const response = await fetch(url, options);
+                
+                log(`Response status: ${response.status}`, 'success');
+                log(`Response headers: ${JSON.stringify([...response.headers])}`);
+                
+                const text = await response.text();
+                log(`Response body: ${text}`, 'success');
+                
+                if (response.ok) {
+                    log('✅ Login successful!', 'success');
+                } else {
+                    log('❌ Login failed with status ' + response.status, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+                log(`Error stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        async function testMe() {
+            log('Testing /api/me endpoint...');
+            
+            try {
+                const response = await fetch('/api/me', {
+                    credentials: 'include'
+                });
+                
+                log(`/api/me status: ${response.status}`);
+                const text = await response.text();
+                log(`/api/me response: ${text}`);
+                
+            } catch (error) {
+                log(`❌ /api/me error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test basic connectivity on load
+        window.onload = function() {
+            log('Page loaded, testing basic connectivity...');
+            testMe();
+        };
+    </script>
+</body>
+</html>
